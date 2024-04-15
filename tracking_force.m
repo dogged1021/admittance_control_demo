@@ -2,7 +2,7 @@
 
 %% Parameters
 % Initial parameters of controlled system.
-m = 0.1;
+m = 1;
 c = 0;
 k = 0;
 maxM = 200; % Maximum gain allowed by slider.

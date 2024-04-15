@@ -4,7 +4,7 @@ function PID_Demo
     %% Parameters
     % Initial parameters of controlled system.
     f = 0;
-    m = 0.1;
+    m = 1;
     c = 0;
     k = 0;
     maxF = 50;
@@ -44,7 +44,7 @@ function PID_Demo
     currentPositionPt = plot(0, 0, '.r', 'MarkerSize', 30);
     % setpointLine = plot([0, tend], [targetPos, targetPos], ':k', 'LineWidth', 2); % Show the target of the controller.
     hold off;
-    axis([0, tend, -50, 50]);
+    axis([0, tend, -20, 20]);
 
     % Bottom 1/4 is left open for slider bars (P, I, & D gains).
     fSlider = uicontrol(fig, 'Style', 'slider');
@@ -175,9 +175,9 @@ function PID_Demo
 
         qdot = zeros(3, 1);
         qdot(1) = velocity;
-        qdot(2) = acceleration;
+        qdot(3) = 0;
 
-        qdot(3) = (f - c * (velocity - initialVel) - k * (position - initialPos)) / m;
+        qdot(2) = (f - c * (velocity - initialVel) - k * (position - initialPos)) / m;
 
     end
 
@@ -193,7 +193,7 @@ function PID_Demo
     end
 
     function mCallback(src, ~)
-        m = src.Value * maxM;
+        m = src.Value * maxM + 1;
         mSliderLabel.String = strcat('Mass: ', num2str(round(m, 1))); % Update text label.
     end
 
