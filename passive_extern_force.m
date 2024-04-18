@@ -148,6 +148,7 @@ function PID_Demo
 
         % Only update the plot buffer if there's been enough change in time for
         % it to matter.
+        % timeBuffer 存储时间点，时间点个数为bufferSize，tend为显示的时间长度，
         if (currTime - timeBuffer(end) > tend / bufferSize)
             % Shift and update buffers.
             timeBuffer = circshift(timeBuffer, -1);
