@@ -9,11 +9,13 @@ function PID_Demo
     k = 0;
     maxF = 50;
     maxM = 20; % Maximum gain allowed by slider.
-    maxC = 20;
+    maxC = 200;
     maxK = 10;
+    dt = 0.2;
 
     initialPos = 0;
     initialVel = 0;
+    initialAcc = 0;
 
     % Initial controller parameters.
     % p = 0; % Proportional gain (spring).
@@ -35,13 +37,35 @@ function PID_Demo
     fig.MenuBar = 'none';
     fig.Position(3:4) = [1000, 600];
 
-    plotAx = subplot(4, 4, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]); % For a time history plot of the result.
-    plotAx.ButtonDownFcn = @setpointClickFcn;
+    plotAx = subplot(8, 4, [1, 2, 3, 4, 5, 6, 7, 8]); % For a time history plot of the result.
+    % plotAx.ButtonDownFcn = @setpointClickFcn;
     plotAx.Box = 'on';
     grid on;
     hold on;
     positionTrace = plot(0, 0, 'LineWidth', 2);
     currentPositionPt = plot(0, 0, '.r', 'MarkerSize', 30);
+    % setpointLine = plot([0, tend], [targetPos, targetPos], ':k', 'LineWidth', 2); % Show the target of the controller.
+    hold off;
+    axis([0, tend, -20, 20]);
+
+    plotAv = subplot(8, 4, [9, 10, 11, 12, 13, 14, 15, 16]); % For a time history plot of the result.
+    % plotAv.ButtonDownFcn = @setpointClickFcn;
+    plotAv.Box = 'on';
+    grid on;
+    hold on;
+    velocityTrace = plot(0, 0, 'LineWidth', 2);
+    currentVelocityPt = plot(0, 0, '.r', 'MarkerSize', 30);
+    % setpointLine = plot([0, tend], [targetPos, targetPos], ':k', 'LineWidth', 2); % Show the target of the controller.
+    hold off;
+    axis([0, tend, -20, 20]);
+
+    plotAa = subplot(8, 4, [17, 18, 19, 20, 21, 22, 23, 24]); % For a time history plot of the result.
+    % plotAv.ButtonDownFcn = @setpointClickFcn;
+    plotAv.Box = 'on';
+    grid on;
+    hold on;
+    accelerationTrace = plot(0, 0, 'LineWidth', 2);
+    currentAccelerationPt = plot(0, 0, '.r', 'MarkerSize', 30);
     % setpointLine = plot([0, tend], [targetPos, targetPos], ':k', 'LineWidth', 2); % Show the target of the controller.
     hold off;
     axis([0, tend, -20, 20]);
@@ -112,16 +136,21 @@ function PID_Demo
     % setpointLabel.Position = [0.72, 0.75, 0.25, 0.03];
 
     %% Realtime integration and plotting loop.
-    currentState = [initialPos, initialVel, 0];
-    bufferSize = 200;
+    currentState = [initialPos, initialVel, initialAcc];
+    bufferSize = 400;
     timeBuffer = zeros(bufferSize, 1);
     positionBuffer = ones(bufferSize, 1) * initialPos(1);
-    tic;
-    currTime = toc;
+    velocityBuffer = ones(bufferSize, 1) * initialVel(1);
+    accelerationBuffer = ones(bufferSize, 1) * initialAcc(1);
+    % tic;
+    % currTime = toc;
+    % prevTime = currTime;
+
+    currTime = 0;
     prevTime = currTime;
 
     while (ishandle(fig)) % Dies when window is closed.
-        currTime = toc;
+        % currTime = toc;
 
         % % What signal are we tracking?
         % switch currentSetpointMode
@@ -138,33 +167,54 @@ function PID_Demo
         % end
 
         % RK4 integration, as fast as computer is able to run this loop.
-        dt = currTime - prevTime;
+        % dt = currTime - prevTime;
+
         k_1 = dt * admittanceControlFcn(0, currentState);
         k_2 = dt * admittanceControlFcn(0, currentState + k_1 / 2);
         k_3 = dt * admittanceControlFcn(0, currentState + k_2 / 2);
         k_4 = dt * admittanceControlFcn(0, currentState + k_3);
         currentState = currentState + (k_1 + 2 * k_2 + 2 * k_3 + k_4) / 6;
         prevTime = currTime;
-
+        currTime = prevTime + dt;
         % Only update the plot buffer if there's been enough change in time for
         % it to matter.
-        % timeBuffer 存储时间点，时间点个数为bufferSize，tend为显示的时间长度，
-        if (currTime - timeBuffer(end) > tend / bufferSize)
-            % Shift and update buffers.
-            timeBuffer = circshift(timeBuffer, -1);
-            timeBuffer(end) = currTime;
-            positionBuffer = circshift(positionBuffer, -1);
-            positionBuffer(end) = currentState(1);
-            positionTrace.XData = timeBuffer;
-            % Update plot data and re-draw.
-            positionTrace.YData = positionBuffer;
-            currentPositionPt.XData = timeBuffer(end);
-            currentPositionPt.YData = positionBuffer(end);
-            plotAx.XLim = [timeBuffer(1), timeBuffer(end)];
-            % setpointLine.XData = [timeBuffer(1), timeBuffer(end)];
-            % setpointLine.YData = [targetPos, targetPos];
-            drawnow;
-        end
+        % timeBuffer 存储时间点序列，时间点个数为bufferSize，tend为显示的时间长度，positionBuffer存储位置序列，位置个数为bufferSize
+        % if (currTime - timeBuffer(end) > tend / bufferSize)
+        % Shift and update buffers.
+        timeBuffer = circshift(timeBuffer, -1);
+        timeBuffer(end) = currTime;
+        positionBuffer = circshift(positionBuffer, -1);
+        positionBuffer(end) = currentState(1);
+        positionTrace.XData = timeBuffer;
+
+        velocityBuffer = circshift(velocityBuffer, -1);
+        velocityBuffer(end) = currentState(2);
+        velocityTrace.XData = timeBuffer;
+
+        accelerationBuffer = circshift(accelerationBuffer, -1);
+        % accelerationBuffer(end) = currentState(3);
+        accelerationBuffer(end) = k_1(2) / dt;
+        accelerationTrace.XData = timeBuffer;
+
+        % Update plot data and re-draw.
+        positionTrace.YData = positionBuffer;
+        currentPositionPt.XData = timeBuffer(end);
+        currentPositionPt.YData = positionBuffer(end);
+        plotAx.XLim = [timeBuffer(1), timeBuffer(end)];
+        % setpointLine.XData = [timeBuffer(1), timeBuffer(end)];
+        % setpointLine.YData = [targetPos, targetPos];
+
+        velocityTrace.YData = velocityBuffer;
+        currentVelocityPt.XData = timeBuffer(end);
+        currentVelocityPt.YData = velocityBuffer(end);
+        plotAv.XLim = [timeBuffer(1), timeBuffer(end)];
+
+        accelerationTrace.YData = accelerationBuffer;
+        currentAccelerationPt.XData = timeBuffer(end);
+        currentAccelerationPt.YData = accelerationBuffer(end);
+        plotAa.XLim = [timeBuffer(1), timeBuffer(end)];
+        drawnow;
+        % end
 
     end
 
@@ -176,10 +226,9 @@ function PID_Demo
 
         qdot = zeros(3, 1);
         qdot(1) = velocity;
-        qdot(3) = 0;
 
         qdot(2) = (f - c * (velocity - initialVel) - k * (position - initialPos)) / m;
-
+        qdot(3) = 0;
     end
 
     function fClearCallback(src, ~)
